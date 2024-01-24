@@ -1,0 +1,59 @@
+name: Patch vulnerable images
+on:
+  workflow_dispatch:
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # provide relevant list of images to scan on each run
+        images:
+          - "sertacacr.azurecr.io/golang:1.16"
+    steps:
+      - uses: azure/docker-login@v1
+        with:
+          login-server: sertacacr.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # generate trivy report for fixable OS package vulnerabilities
+      - name: Generate Trivy Report
+        uses: aquasecurity/trivy-action@d43c1f16c00cfd3978dde6c07f4bbcf9eb6993ca # 0.16.1
+        with:
+          scan-type: "image"
+          format: "json"
+          output: "report.json"
+          ignore-unfixed: true
+          vuln-type: "os"
+          image-ref: ${{ matrix.images }}
+        env:
+          TRIVY_USERNAME: ${{ secrets.ACR_USERNAME }}
+          TRIVY_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+
+        # check whether there are any OS package vulnerabilities
+      - name: Check vulnerability count
+        id: vuln_count
+        run: |
+          report_file="report.json"
+          vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file")
+          echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
+
+      - name: copa patch
+        if: steps.vuln_count.outputs.vuln_count > 0
+        id: copa_patch
+        run: |
+          wget https://github.com/project-copacetic/copacetic/releases/download/v${COPA_VERSION}/copa_${COPA_VERSION}_linux_amd64.tar.gz
+          tar -xzf copa_${COPA_VERSION}_linux_amd64.tar.gz
+          chmod +x copa
+
+          docker buildx create --use --name builder
+          ./copa patch -i ${{ matrix.images }} -r report.json -t 1.16-patched
+          echo "copa_patch=true" >> $GITHUB_OUTPUT
+        env:
+          COPA_VERSION: 0.6.0
+
+      - name: Push patched image
+        if: steps.copa_patch.outputs.copa_patch == 'true'
+        run: |
+          docker push sertacacr.azurecr.io/golang:1.16-patched
