@@ -1,4 +1,4 @@
-name: Patch vulnerable images
+name: Patch vulnerable images (CLI)
 on:
   workflow_dispatch:
 jobs:
