@@ -36,7 +36,7 @@ jobs:
           echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
 
       - name: Set up Docker
-        uses: crazy-max/ghaction-setup-docker@v3
+        uses: docker/setup-docker-action@v4
         with:
           daemon-config: |
               {
