@@ -29,26 +29,6 @@ jobs:
           docker buildx build --load -t docker.io/local/focal:20200925 -f Dockerfile.local-test .
           docker images
 
-        # install jq for parsing JSON
-      # generate trivy report for fixable OS package vulnerabilities
-      - name: Generate Trivy Report
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # 0.29.0
-        with:
-          scan-type: "image"
-          format: "json"
-          output: "report.json"
-          ignore-unfixed: true
-          vuln-type: "os"
-          image-ref: "docker.io/local/focal:20200925"
-
-        # check whether there are any OS package vulnerabilities
-      - name: Check vulnerability count
-        id: vuln_count
-        run: |
-          report_file="report.json"
-          vuln_count=$(jq 'if .Results then [.Results[] | select(.Class=="os-pkgs" and .Vulnerabilities!=null) | .Vulnerabilities[]] | length else 0 end' "$report_file")
-          echo "vuln_count=$vuln_count" >> $GITHUB_OUTPUT
-
       - name: Get socket path
         run: |
           url=$(docker context inspect | jq -r .[0].Endpoints.docker.Host)
@@ -58,7 +38,6 @@ jobs:
 
         # copa action will only run if there are vulnerabilities
       - name: Run Copa action
-        if: steps.vuln_count.outputs.vuln_count != '0'
         id: copa
         uses: project-copacetic/copa-action@v1.2.1
         with:
