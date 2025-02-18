@@ -42,7 +42,7 @@ jobs:
         uses: project-copacetic/copa-action@v1.2.1
         with:
           image: "docker.io/local/focal:20200925"
-          image-report: "report.json"
+          image-report: "focal:20200925.json"
           patched-tag: "patched"
           timeout: 5m
           custom-socket: ${SOCKET}
