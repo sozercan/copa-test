@@ -29,6 +29,20 @@ jobs:
           docker buildx build --load -t docker.io/local/focal:20200925 -f Dockerfile.local-test .
           docker images
 
+      - name: Download Trivy
+        run: |
+          wget https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
+          tar -xzf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz
+          chmod +x trivy
+          sudo mv trivy /usr/local/bin/trivy
+        env:
+          TRIVY_VERSION: 0.59.1
+
+      - name: Get Trivy report
+        run: |
+          sudo trivy image --format json --output focal:20200925.json docker.io/local/focal:20200925
+          sudo cat focal:20200925.json
+
       - name: Get socket path
         run: |
           url=$(docker context inspect | jq -r .[0].Endpoints.docker.Host)
@@ -36,7 +50,6 @@ jobs:
           echo "$socket_path"
           echo "SOCKET=$socket_path" >> $GITHUB_ENV
 
-        # copa action will only run if there are vulnerabilities
       - name: Run Copa action
         id: copa
         uses: project-copacetic/copa-action@v1.2.1
